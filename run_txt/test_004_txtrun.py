@@ -14,6 +14,7 @@ from scipy.spatial.transform import Rotation as R_trans
 torch.set_default_dtype(torch.float32)
 
 t_start = time.time()
+
 def rm2eula(Rm):
     r = R_trans.from_matrix(Rm)
     eulas=r.as_euler('xyz', degrees=False)
@@ -154,44 +155,42 @@ def r_matrix_get(grasp):
     
     '''
     return R
+def extract_bracket_data(line, index):
+    bracket_data = line.split("[")[index].split("]")[0]
+    return np.fromstring(bracket_data, sep=' ')
 
-
-def scripts(npy_path):
-    #npy路径
-    point_file_path=npy_path
-    #point_file_path='/home/pxing/dataset/pointngpd/ycb_grasp/train/011_banana.npy'
-    arr=npy_load(point_file_path)#arr(n,12)
-    point_inds = np.arange(arr.shape[0])
-
+def scripts(txt_path):
     Rs=[]
     target_points=[]
-    Roll_matrix=np.array([[1,0,0],[0,0,-1],[0,1,0 ]])#绕x轴旋转90度
-    #Roll_matrix=np.array([[0,0,-1],[0,1,-0],[1,0,0 ]])#绕y轴旋转90度
-    for point_ind in point_inds:
-        target_point = arr[point_ind,0:3]
-        #target_point=target_point.dot(Roll_matrix)       
-        grasp=arr[point_ind]
-        R=r_matrix_get(grasp)
-        # width = grasp[6]
-        # if  width > max_width:
-        #     continue
-        R = r_matrix_get(grasp)
-        
-        #因为夹爪姿态和原obj是不一样的，所以需要绕y轴旋转90度
+    with open(txt_path, "r") as file:
+        lines = file.readlines()
+    # 遍历每一行
+    for line in lines:
+        arrays = []
+        # 提取四个[]中的数据
+        for i in range(1, 5):
+            array_data = extract_bracket_data(line, i)
+            arrays.append(array_data)
+
+        target_point = arrays[0]
+
+        R = np.c_[arrays[2],arrays[3],arrays[1]]
+
         axis_y_90=np.array([[0,0,1],[0,1,0],[-1,0,0]])
         R = R.dot(axis_y_90)
         
-        t = target_point
+        # #旋转矩阵做成相反向量
+        Rs.append(R)
         
-        #旋转矩阵做成相反向量
-        Rs.append(-R)
-        
-        target_points.append(t)        
+        target_points.append(target_point)        
     return Rs,target_points
+
+
+
         
 
-def main(npy_version,name):
-    npy_path='/home/tencent_go/Music/codes/multi_feature_get/dataset_process/npy/'+npy_version+'/'+name+'.npy'
+def main(name):
+    npy_path='/home/tencent_go/paper/Filte_isaac_gym/run_txt/004_sugar_box.txt'
     urdf_path= '//home/tencent_go/dataset/ycb/'+name+'/google_512k/nontextured.urdf'   
     Rs,target_points=scripts(npy_path)
     gym = gymapi.acquire_gym()
@@ -427,8 +426,6 @@ def main(npy_version,name):
     
     while not gym.query_viewer_has_closed(viewer):#关闭后退出循环
         
-        print('****************************cnt=',cnt)
-
         if reset:
             cnt += 1
             temp_R=Rs[(cnt-1)*num_envs:cnt*num_envs]#拿出夹爪的姿态矩阵
@@ -520,7 +517,7 @@ def main(npy_version,name):
 
                         initialize = False
                         #进入state1
-                        print('                   enter  95% target_dist<0.01')
+                        print('enter  95% target_dist<0.01')
                         gym.set_actor_root_state_tensor(sim,gymtorch.unwrap_tensor(actor_root_state_tensor_fixed))
                         state=1
                 pos_action[:,:3] = grasp_pos.view(-1,3)
@@ -609,61 +606,16 @@ def main(npy_version,name):
 
 #运行
 if __name__=='__main__':
-    npy_version='14kb'#可选600kb
-    filePath = '/home/tencent_go/Music/codes/multi_feature_get/dataset_process/npy/'+npy_version
-    npy_list_origin=os.listdir(filePath)
-    npy_list=[]
-    #如果已经生成过.npy了就不再重复生成
-    for i in npy_list_origin:
-        name=i.split('.')[0]
-        folder='/home/tencent_go/Music/codes/multi_feature_get/using_version/data/npy_un_select/'+name+'.npy'
-        folder = os.path.exists(folder)
-        if not folder:
-          npy_list.append(name)
-    print(npy_list)   
-    for i in npy_list:
-        name=i.split('.')[0]
-        print(name)
-        #time.sleep(20)
-        mask,npy_path=main(npy_version,name)
-        time.sleep(10)
-        print(name,'out process success')
-        masks = [not tbl for tbl in mask]#注释掉就是mask掉好的抓取配置拿到坏的抓取配置
-        #masks=mask
-        arr=np.load(npy_path)
-        arr=arr[masks]
-        np.save("using_version/data/npy_select/"+name+'.npy', arr)
-        
-    # #单个物体测试
-    # name='004_sugar_box'
-    # print(name)
-    # #time.sleep(20)
-    # folder="using_version/data/npy_select/"+name+'.npy'
-    # #如果已经生成过.npy了就不再重复生成
+    #单个物体测试
+    name='004_sugar_box'
 
-    # mask,npy_path=main(npy_version,name)
-    # time.sleep(10)
-    # print(name,'out process success')
-    # masks = [not tbl for tbl in mask]
-    # arr=np.load(npy_path)
-    # arr=arr[masks]
-    # np.save("using_version/data/npy_select/"+name+'.npy', arr)
+    mask,npy_path=main(name)
+    time.sleep(10)
+    print(name,'out process success')
+    masks = [not tbl for tbl in mask]#反转后True代表抓取成功
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
+    # 打开文件，准备写入
+    with open("output.txt", "w") as file:
+       for mask in masks:
+        # 将字符串添加换行符
+         file.write(str(mask) + "\n")
