@@ -190,7 +190,7 @@ def scripts(txt_path):
         
 
 def main(name):
-    npy_path='/home/tencent_go/paper/Filte_isaac_gym/run_txt/004_sugar_box.txt'
+    npy_path='/home/tencent_go/paper/grasp_hux/area_get/output/2023-09-11/01-07/'+name+'.txt'
     urdf_path= '//home/tencent_go/dataset/ycb/'+name+'/google_512k/nontextured.urdf'   
     Rs,target_points=scripts(npy_path)
     gym = gymapi.acquire_gym()
@@ -316,7 +316,7 @@ def main(name):
     # configure env grid
     num_envs = 150#环境数量
     num_per_row = int(math.sqrt(num_envs))
-    spacing = 1.0
+    spacing = 0.3
     env_lower = gymapi.Vec3(-spacing, -spacing, 0.0)
     env_upper = gymapi.Vec3(spacing, spacing, spacing)
     print("Creating %d environments" % num_envs)
@@ -607,7 +607,7 @@ def main(name):
 #运行
 if __name__=='__main__':
     #单个物体测试
-    name='004_sugar_box'
+    name='040_large_marker'
 
     mask,npy_path=main(name)
     time.sleep(10)
